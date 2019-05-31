@@ -1,0 +1,166 @@
+/*-----------------------------------------------------
+Model used in the article by Michalikova et al. (2016)
+to explore the generation of spikelets in cortical pyramidal neurons.
+The model was adapted from Hu et al. (2009).
+
+The following script simulates a layer V pyramidal cell stimulated with 
+fluctuating synaptic input that results in somatic APs and spikelets.
+To run this script, first compile the .mod files (e.g. with "nrnivmodl"),
+then open this script in GUI ("nrngui Spikelets_Main.hoc"). 
+Press "Init & Run" to start the simulation. The graph shows voltage traces
+at the soma (black) and at the AIS (red). Somatic spikelets correspond to 
+APs at the AIS.
+---------------------------------------------------- */
+
+
+
+/* -----------------------------------------------------
+    Layer V Cortical Pyramidal Cell
+    
+    Based on Yu Yuguo ( May 1, 2008)
+----------------------------------------------------- */
+
+
+objref somatodendritic, dendritic
+
+
+
+
+// --------------------------------------------------
+//    Parameter Settings
+// --------------------------------------------------
+
+/* Global */
+  dt = 0.01
+  celsius   = 37
+  steps_per_ms = 1/dt
+  tstop = 10000
+  v_init = -70
+  
+/* Others */
+  axonOnSoma=1
+  
+/* Passive membrane */
+  ra        = 150  
+  global_ra = ra
+  rm        = 30000   // g_pas=1/rm
+  c_m       = 0.5
+  cm_myelin = 0.02
+  g_pas_node = 0.02
+
+/* Active channels */
+  // Nav
+  Ena = 60
+  gna12_soma = 80
+  gna12_dend = 80 
+  gna12_ais_max = 3200   // Nav1.2 
+  gna16_ais_max = 3200   // Nav1.6
+  gna16_nakeaxon= 300    
+  gna12_myelin=20       // Nav1.2 at myelins
+  gna16_node = 3200     // Nav1.6 at node
+  
+  vhalf_na12 = -30
+  vhalf_na16 = -43
+  vhalf_na = -30
+  
+  // Kv
+  Ek = -90  
+  gkv_soma = 20
+  gkv_dend = 10 
+  gkv_axon = 1000
+  
+  // Km
+  gkm = .3
+  gkm_soma = gkm
+  
+  // Kca
+  gkca = 3
+  gkca_soma = gkca
+  
+  // Ca
+  Eca=140
+  gca = .3
+  gca_soma = gca
+
+/* MM: downscale gNa */
+scale_gna_soma = 0.8           //factor to scale gbar_na in soma
+scale_gna_dend = 0.6          //factor to scale gbar_na in dendrites
+scale_gna12_hillais = 0.8    //factor to scale the na12 conductance in hill and ais
+
+
+// ------------------------------------------------
+//    Cell Geometry
+// ------------------------------------------------
+ 
+
+/* Clean up */  
+  forall delete_section()
+
+/* Soma and Dendrites */
+  load_file("morphology/P_Soma_Dendrites.hoc")
+
+  // build a sectionlist for soma and dendrites
+  somatodendritic = new SectionList()
+  forall {
+    if (L/nseg>40) {
+      nseg = L/40 + 1 
+    }    // make sure no segments exceed 40 uM length. Note, soma.nseg remains 10.
+    somatodendritic.append()  // soma and dendrites are all included
+  }
+
+    
+  // build a sectionlist for dendrites only
+  dendritic = new SectionList()
+  forsec somatodendritic dendritic.append()
+  soma  dendritic.remove()     // remove soma for pure dendritic sectionlist
+
+/* Axon - MM: diameters corrected to avoid a discontinuity */
+  load_file("morphology/P_Axon_corrected.hoc") 
+  create_axon()
+
+  
+/* Spines */
+  aspiny = 0  // 0 for spiny
+  if (!aspiny) {
+    load_file ("morphology/P_Spines.hoc")
+    add_spines(dendritic,spine_dens)
+  }
+  
+  
+  distance(0,axonOnSoma)  // set the point where axon seated on soma as the origin
+
+
+// ----------------------------------------------------
+//  Insert Density Mechanisms
+// ----------------------------------------------------
+
+load_file ("P_DensityMech.hoc") 
+
+// Install passive membrane properties
+install_passive()  
+// Install active channels
+install_channels()
+
+    
+// -------------------------------------------------------------------
+// MM: insert fluctuating synaptic conductance from Destexhe et al. (2001)
+// -------------------------------------------------------------------
+objref fl
+soma fl = new Gfluct2(0.5)
+
+    
+/* MM: load the session */
+xopen("Gfluct_session.ses")
+
+
+
+
+  
+
+
+
+  
+  
+  
+  
+  
